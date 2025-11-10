@@ -9,7 +9,7 @@
 #include <portmacro.h>
 #include <projdefs.h>
 #include <queue.h>
-#include <semphr.h>
+// #include <semphr.h>
 // #include <StackMacros.h>
 #include <task.h>
 #include <timers.h>
@@ -102,18 +102,28 @@ void TaskSensorRead(void *pvParameters){
 
     for(;;){
         if (dataQueue != NULL){
-            if (uxQueueSpacesAvailable(dataQueue) > 0){
-                hdc.readTemperatureHumidityOnDemand(temp, hum, TRIGGERMODE_LP0);
-                // put data in queue here
-                xQueueSendToBack(dataQueue, (void *) &temp, 0);
+            
+            hdc.readTemperatureHumidityOnDemand(temp, hum, TRIGGERMODE_LP0);
+            // put data in queue here
+            // the parameters are:
+            // the queue
+            // the data buffer to read from
+            // the condition and time to block the task until 
+            // the data can be put in the queue
+            if (xQueueSendToBack(dataQueue, (void *) &temp, portMAX_DELAY) != pdPASS){
+                Serial.println("Warining sending stale data");
             }
+            
             // maybe remove an element in the queue if there is no available space?
             // eh, by the time the task runs again it will have newer data
             // so its not important that every data point gets into the queue I think
+            // actually just utilize the task blocking to wait for the queue to open
+            // this also lets us get rid of the task delay wooo
+
             
-            // delay one rtos tick which is 15 milliseconds 
-            // this is so the task is not constantly reading the data
-            vTaskDelay(200/portTICK_PERIOD_MS); 
+            // // delay one rtos tick which is 15 milliseconds 
+            // // this is so the task is not constantly reading the data
+            // vTaskDelay(200/portTICK_PERIOD_MS); 
         }
         
 
@@ -127,17 +137,19 @@ void TaskPublish(void *pvParameters){
 
     for(;;){
         if (dataQueue != NULL){
-            unsigned int dataInQueue = dataQueueSize - (unsigned int)(uxQueueSpacesAvailable);
-            if (dataInQueue > 0){
+            // unsigned int dataInQueue = dataQueueSize - (unsigned int)(uxQueueSpacesAvailable);
+            // if (dataInQueue > 0){
                 // read from the queue
                 // args for this
                 // queue handle to read from 
                 // pointer to buffer to read into
                 // time in rtos ticks to block waiting for queue to be nonempty
-                xQueueReceive(dataQueue, &(temp), 0);
+            if (xQueueReceive(dataQueue, &(temp), portMAX_DELAY) == pdPASS){
                 Serial.println("temperature: " + String(temp) + " C");
             }
-            vTaskDelay(500/portTICK_PERIOD_MS); // only print every second
+                
+            // }
+            // vTaskDelay(500/portTICK_PERIOD_MS); // only print every second
         }
     }
 }
