@@ -74,11 +74,8 @@ void TaskSensorRead(void *pvParameters){
 
     for(;;){
         hdc.readTemperatureHumidityOnDemand(temp, hum, TRIGGERMODE_LP0);
-        Serial.print("Temperature: ");
-        Serial.print(temp);
-        Serial.print(" C, Humidity: ");
-        Serial.print(hum);
-        Serial.println(" %");
+        String data = "{temperature: " + String(temp) + ",humidity: " + String(hum) +"}";
+        Serial.println(data);
         vTaskDelay(1500/portTICK_PERIOD_MS); // delay one rtos tick which is 15 milliseconds 
     }
 }
