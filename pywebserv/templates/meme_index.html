@@ -4,19 +4,39 @@
         <title>Counter</title>
         <meta name="viewport" content="width-device-width, initial-scale=1">
         <!-- this refreshes the site -->
-        <meta http-equiv="refresh" content="0.1"/>
+        <!-- <meta http-equiv="refresh" content="1"/> -->
         <!-- <style>
             THIS IS WHERE CSS comes in but im not doing that now
         </style> -->
     </head>
     <body>
         <h1>Counter:</h1>
-        <p id="counter"></p>
-        <!-- this script dynamically updates the counter value each time page refreshes -->
+        <p id="counter1">Count 1: ...</p>
+        <p id="counter2">Count 2: ...</p>
+        <p id="counter3">Count 3: ...</p>
+        <!-- this script updates without changing the whole page -->
         <script>
-            const counter_val = {{ val }};
-            document.getElementById("counter").textContent = counter_val;
+            async function updateCounters(){
+                try {
+                    // fetches the counter values from the data endpoint
+                    // whenever the data endpoint is accessed the count changes
+                    const res = await fetch("/data");
+                    const data = await res.json();
+
+                    document.getElementById("counter1").textContent = "Count 1: " + data.val1;
+                    document.getElementById("counter2").textContent = "Count 2: " + data.val2;
+                    document.getElementById("counter3").textContent = "Count 3: " + data.val3;
+                } catch (err){
+                    console.error()
+                }
+            }
+
+            // set up the script update interval
+            // parameters:
+            // function to run at intervals
+            // interval in milliseconds
+            setInterval(updateCounters, 100); 
+            updateCounters(); // run once immediately
         </script>
-        <!-- <p>"{{count}}"</p> -->
     </body>
 </html>

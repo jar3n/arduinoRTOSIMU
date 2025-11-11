@@ -6,18 +6,17 @@
 # have the shebang
 #!/bin/python3
 
-from flask import Flask, render_template
-import requests, json
+from flask import Flask, render_template, jsonify
 
 
 # making the flask app
 app = Flask(__name__)
 
 class Counter():
-    def __init__(self):
-        self.count = 0
-        self.max = 40
-        self.min = 0
+    def __init__(self, start, low_bound, high_bound):
+        self.count = start
+        self.max = high_bound
+        self.min = low_bound
 
         # states
         self.DOWN = 0
@@ -43,13 +42,22 @@ class Counter():
             else:
                 self.down()
 
-c = Counter()
+c1 = Counter(0, 0, 4)
+c2 = Counter(0, -2, 2)
+c3 = Counter(42, 42, 69)
 # python decorator to add more functionality to the below function
 # the decorator tells flask to call this function when they go to /
 @app.route("/")
 def index():
-    c.change()
-    return render_template("meme_index.html", val=c.count)
+    return render_template("meme_index.html")
+
+# adding route where the data is updated
+@app.route("/data")
+def data():
+    c1.change()
+    c2.change()
+    c3.change()
+    return jsonify({"val1" : c1.count, "val2" : c2.count, "val3" : c3.count})
 
 # run flask 
 # runs on any ip address in host network
