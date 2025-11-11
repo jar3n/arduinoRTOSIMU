@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Counter</title>
+        <meta name="viewport" content="width-device-width, initial-scale=1">
+        <!-- this refreshes the site -->
+        <meta http-equiv="refresh" content="0.1"/>
+        <!-- <style>
+            THIS IS WHERE CSS comes in but im not doing that now
+        </style> -->
+    </head>
+    <body>
+        <h1>Counter:</h1>
+        <p id="counter"></p>
+        <!-- this script dynamically updates the counter value each time page refreshes -->
+        <script>
+            const counter_val = {{ val }};
+            document.getElementById("counter").textContent = counter_val;
+        </script>
+        <!-- <p>"{{count}}"</p> -->
+    </body>
+</html>
