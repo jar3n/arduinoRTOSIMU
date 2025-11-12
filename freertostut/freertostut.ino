@@ -39,11 +39,11 @@ void setup() {
         Serial.println(F(" - done"));
     }
 
-    Serial.println(F("Now setting up tasks"));
+    Serial.println("Now setting up tasks");
 
 
     // instantiating a message buffer
-    dataQueue = xQueueCreate(10, sizeof(float)*QUEUE_ARRAY_SIZE);
+    dataQueue = xQueueCreate(3, sizeof(float)*QUEUE_ARRAY_SIZE);
 
     if (dataQueue != NULL){
         // here the tasks are set up to run independently
@@ -55,13 +55,11 @@ void setup() {
         // NULL
         // priority
         // NULL
-        if(xTaskCreate(TaskSensorRead, "SensorRead", 128, NULL, 1, NULL) != pdPASS){
-            Serial.println("Failed to create the sensor read task.");
-        }
+        // NOTE: do not increase over 128 because it causes a heap overflow
+        // (noted by the fast blinking led and lack of serial printing)
+        xTaskCreate(TaskSensorRead, "SensorRead", 128, NULL, 1, NULL);
 
-        if(xTaskCreate(TaskPublish, "PublishData", 128, NULL, 2, NULL) != pdPASS){
-            Serial.println("Failed to create the publish data task");
-        }
+        xTaskCreate(TaskPublish, "PublishData", 128, NULL, 2, NULL);
     } else {
         Serial.println("ERROR UNABLE TO CREATE THE MESSAGE BUFFER NEED MORE SPACE LIKELY.");
     }
@@ -79,8 +77,6 @@ void loop() {
 // task implementations
 void TaskSensorRead(void *pvParameters){
     (void) pvParameters;
-
-    Serial.println("Starting Reading Sensor Task");
 
     float imuData[QUEUE_ARRAY_SIZE];
 
@@ -116,12 +112,9 @@ String getOrientationJson(float heading, float roll, float pitch){
 }
 
 
-
 void TaskPublish(void *pvParameters){
     (void) pvParameters;
-
-    Serial.println("Starting Publishing Task");
-
+    
     size_t bytesReceived;
     float imuData[QUEUE_ARRAY_SIZE];
 
@@ -131,11 +124,7 @@ void TaskPublish(void *pvParameters){
             if(xQueueReceive(dataQueue, (void *) imuData, portMAX_DELAY) != pdPASS){
                 Serial.println("Not able to get data from queue");
             } else {
-                Serial.println("________________");
-                Serial.println("heading: " + String(imuData[0]));
-                Serial.println("roll: " + String(imuData[1]));
-                Serial.println("pitch: " + String(imuData[2]));
-                Serial.println("________________");
+                Serial.println(getOrientationJson(imuData[0], imuData[1], imuData[2]));
             }
         }
     }
