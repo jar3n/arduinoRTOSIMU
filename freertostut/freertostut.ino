@@ -1,40 +1,51 @@
 #include <Arduino_FreeRTOS.h>
-// #include <croutine.h>
-#include <event_groups.h>
-#include <FreeRTOSConfig.h>
-#include <FreeRTOSVariant.h>
-#include <list.h>
-#include <mpu_wrappers.h>
-#include <portable.h>
-#include <portmacro.h>
 #include <projdefs.h>
-#include <queue.h>
-// #include <semphr.h>
-// #include <StackMacros.h>
 #include <task.h>
-#include <timers.h>
+#include <queue.h>
 
-// include for the hdc temp sensor 
-// trying to make the task read the sensor instead of simple 
-// analog read
-#include <Adafruit_HDC302x.h>
+// IMU libraries
+#include <Wire.h>
+#include <7Semi_BNO055.h>
 
 // function headers for blink and analogread example
-void TaskBlink(void *pvParameters);
 void TaskSensorRead(void *pvParameters);
 void TaskPublish(void *pvParameters);
 
-// adding a queue for the temperature data
-// to separate the getting of the data from publishing the data
 QueueHandle_t dataQueue;
-unsigned int dataQueueSize = 10;
+
+BNO055_7Semi imu;
+
+// 3 floats in the array
+#define QUEUE_ARRAY_SIZE 3
+
 
 void setup() {
     Serial.begin(9600);
-    // instantiating a queue
-    dataQueue = xQueueCreate(dataQueueSize, sizeof(double));
 
-    if (dataQueue !=NULL){
+    while(!Serial) delay(10);
+
+
+    // setting up the imu at the start 
+    // because it has to calibrate
+    if(!imu.begin()){
+        Serial.println("BMO055 failed to start!!!!");
+        while(1) { delay(1000); }
+    }
+    imu.setMode(Mode::NDOF);
+    Serial.print(F("Calibrating IMU"));
+    if (!imu.waitCalibrated(10000, 200)){
+        Serial.println(F(" - timeout"));
+    } else {
+        Serial.println(F(" - done"));
+    }
+
+    Serial.println(F("Now setting up tasks"));
+
+
+    // instantiating a message buffer
+    dataQueue = xQueueCreate(10, sizeof(float)*QUEUE_ARRAY_SIZE);
+
+    if (dataQueue != NULL){
         // here the tasks are set up to run independently
         // first set up blink
         // parameters:
@@ -44,13 +55,15 @@ void setup() {
         // NULL
         // priority
         // NULL
-        xTaskCreate(TaskBlink, "Blink", 128,  NULL, 3, NULL);
+        if(xTaskCreate(TaskSensorRead, "SensorRead", 128, NULL, 1, NULL) != pdPASS){
+            Serial.println("Failed to create the sensor read task.");
+        }
 
-        xTaskCreate(TaskSensorRead, "SensorRead", 128, NULL, 1, NULL);
-
-        xTaskCreate(TaskPublish, "PublishData", 128, NULL, 2, NULL);
+        if(xTaskCreate(TaskPublish, "PublishData", 128, NULL, 2, NULL) != pdPASS){
+            Serial.println("Failed to create the publish data task");
+        }
     } else {
-        Serial.println("ERROR UNABLE TO CREATE THE DATA QUEUE NEED MOR ESPACE LIKELY.");
+        Serial.println("ERROR UNABLE TO CREATE THE MESSAGE BUFFER NEED MORE SPACE LIKELY.");
     }
 
 }
@@ -64,92 +77,66 @@ void loop() {
 }
 
 // task implementations
-void TaskBlink(void *pvParameters){
-    (void) pvParameters;
-
-    // the LED is on when there is 
-    // stuff in the queue 
-    // and off when there is nothing in the queue
-
-    // set up stuff happens here
-    pinMode(13, OUTPUT);
-
-    // here is the forever loop
-    for(;;){
-        unsigned int numQueueFreeSpaces = uxQueueSpacesAvailable(dataQueue);
-        if (numQueueFreeSpaces == dataQueueSize){
-            // queue is empty so led is off
-            digitalWrite(13, LOW);
-        } else{
-            digitalWrite(13, HIGH);
-        }
-        vTaskDelay(1); // for cleanness?? was in example maybe unecessary
-        // digitalWrite(13, HIGH);
-        // vTaskDelay(1000/portTICK_PERIOD_MS); // use rtos delay to delay one sec
-        // digitalWrite(13, LOW);
-        // vTaskDelay(100/portTICK_PERIOD_MS);
-    }
-}
-
 void TaskSensorRead(void *pvParameters){
     (void) pvParameters;
 
-    Adafruit_HDC302x hdc = Adafruit_HDC302x();
-    double temp = 0.0;
-    double hum = 0.0;
+    Serial.println("Starting Reading Sensor Task");
 
-    hdc.begin(0x44, &Wire);
+    float imuData[QUEUE_ARRAY_SIZE];
 
     for(;;){
         if (dataQueue != NULL){
-            
-            hdc.readTemperatureHumidityOnDemand(temp, hum, TRIGGERMODE_LP0);
-            // put data in queue here
-            // the parameters are:
-            // the queue
-            // the data buffer to read from
-            // the condition and time to block the task until 
-            // the data can be put in the queue
-            if (xQueueSendToBack(dataQueue, (void *) &temp, portMAX_DELAY) != pdPASS){
-                Serial.println("Warining sending stale data");
+
+            // get the data using the adafruit sensor 
+            // interface then make it json
+            float heading, roll, pitch;
+            if (imu.readEuler(heading, roll, pitch)){
+                imuData[0] = heading;
+                imuData[1] = roll;
+                imuData[2] = pitch;
+
+                // check the message was sent
+                if (xQueueSendToBack(dataQueue, (void *) imuData, portMAX_DELAY) != pdPASS){
+                    Serial.println("UNABLE TO SEND FULL MESSAGE!!!!");
+                } 
             }
-            
-            // maybe remove an element in the queue if there is no available space?
-            // eh, by the time the task runs again it will have newer data
-            // so its not important that every data point gets into the queue I think
-            // actually just utilize the task blocking to wait for the queue to open
-            // this also lets us get rid of the task delay wooo
-
-            
-            // // delay one rtos tick which is 15 milliseconds 
-            // // this is so the task is not constantly reading the data
-            // vTaskDelay(200/portTICK_PERIOD_MS); 
         }
-        
-
     }
 }
+
+String getOrientationJson(float heading, float roll, float pitch){
+    // get the data from the sensor and 
+    // return it in a json string
+    String eventJsonStr = "{";
+    eventJsonStr += "heading:" + String(heading);
+    eventJsonStr += ",roll:" + String(roll);
+    eventJsonStr += ",pitch:" + String(pitch);
+    eventJsonStr += "}";
+    return eventJsonStr;
+}
+
+
 
 void TaskPublish(void *pvParameters){
     (void) pvParameters;
 
-    double temp;
+    Serial.println("Starting Publishing Task");
+
+    size_t bytesReceived;
+    float imuData[QUEUE_ARRAY_SIZE];
 
     for(;;){
         if (dataQueue != NULL){
-            // unsigned int dataInQueue = dataQueueSize - (unsigned int)(uxQueueSpacesAvailable);
-            // if (dataInQueue > 0){
-                // read from the queue
-                // args for this
-                // queue handle to read from 
-                // pointer to buffer to read into
-                // time in rtos ticks to block waiting for queue to be nonempty
-            if (xQueueReceive(dataQueue, &(temp), portMAX_DELAY) == pdPASS){
-                Serial.println("temperature: " + String(temp) + " C");
+            // appearantly the portMAX_DELAY means block indefinitely until a message is received
+            if(xQueueReceive(dataQueue, (void *) imuData, portMAX_DELAY) != pdPASS){
+                Serial.println("Not able to get data from queue");
+            } else {
+                Serial.println("________________");
+                Serial.println("heading: " + String(imuData[0]));
+                Serial.println("roll: " + String(imuData[1]));
+                Serial.println("pitch: " + String(imuData[2]));
+                Serial.println("________________");
             }
-                
-            // }
-            // vTaskDelay(500/portTICK_PERIOD_MS); // only print every second
         }
     }
 }
