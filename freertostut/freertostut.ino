@@ -104,9 +104,9 @@ String getOrientationJson(float heading, float roll, float pitch){
     // get the data from the sensor and 
     // return it in a json string
     String eventJsonStr = "{";
-    eventJsonStr += "heading:" + String(heading);
-    eventJsonStr += ",roll:" + String(roll);
-    eventJsonStr += ",pitch:" + String(pitch);
+    eventJsonStr += "\"heading\":" + String(heading);
+    eventJsonStr += ",\"roll\":" + String(roll);
+    eventJsonStr += ",\"pitch\":" + String(pitch);
     eventJsonStr += "}";
     return eventJsonStr;
 }
