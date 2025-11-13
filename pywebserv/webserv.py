@@ -32,6 +32,8 @@ class  arduinoIMU(threading.Thread):
         global imu_data
         # run this in a separate thread
         # from webserver so the serial is always open
+        #  this is from the pyserial docs on continuous reading
+        # from a serial port
         while True:
             # always read the data from the imu
             try:
@@ -65,7 +67,7 @@ def index():
 @app.route("/imudata")
 def imudata():
     global imu_data
-
+    # grab the latest from the imu if flask can access the lock
     with lock:
         return jsonify(imu_data)
 
