@@ -7,62 +7,77 @@
 #!/bin/python3
 
 from flask import Flask, render_template, jsonify
-
+import serial
+import threading
+import json
 
 # making the flask app
 app = Flask(__name__)
 
-class Counter():
-    def __init__(self, start, low_bound, high_bound):
-        self.count = start
-        self.max = high_bound
-        self.min = low_bound
+# imu data is global to share between threads
+# got from here: https://stackoverflow.com/questions/17774768/python-creating-a-shared-variable-between-threads
+imu_data = {"heading":"CALIBRATING", "roll":"CALIBRATING", "pitch":"CALIBRATING"}
 
-        # states
-        self.DOWN = 0
-        self.UP = 1
-        self.state = self.UP
+lock = threading.Lock()
 
-    def up(self):
-        self.count = self.count + 1
-    def down(self):
-        self.count = self.count - 1
-    
-    def change(self):
-        # changes count value based on
-        # the last boundary it hit 
-        if self.state == self.UP:
-            if self.count == self.max:
-                self.state = self.DOWN
-            else:
-                self.up()
-        else:
-            if self.count == self.min:
-                self.state = self.UP
-            else:
-                self.down()
 
-c1 = Counter(0, 0, 4)
-c2 = Counter(0, -2, 2)
-c3 = Counter(42, 42, 69)
+class  arduinoIMU(threading.Thread):
+    def __init__(self, name,  dev, baud):
+        threading.Thread.__init__(self)
+        # create the serial here
+        self.dev = serial.Serial(dev, baud)
+        self.data = {"heading":"Starting", "roll":" Up ", "pitch":" Now"}
+        
+    def run(self):
+        global flag
+        global imu_data
+        # run this in a separate thread
+        # from webserver so the serial is always open
+        while True:
+            # always read the data from the imu
+            try:
+                line = self.dev.readline()
+                if line:
+                    text = line.decode('utf-8', errors='ignore').strip()
+                    if text:
+                        self.data = json.loads(text)
+            except KeyboardInterrupt:
+                break
+            except json.JSONDecodeError:
+                # skip all JSON decode errors
+                pass
+            except Exception as e:
+                print(f"Read error {e}")
+                break
+
+            # try to update the data 
+            # published to the site
+            with lock:
+                imu_data = self.data
 
 
 # python decorator to add more functionality to the below function
 # the decorator tells flask to call this function when they go to /
 @app.route("/")
 def index():
-    return render_template("meme_index.html")
+    return render_template("index.html")
 
-# adding route where the data is updated
-@app.route("/data")
-def data():
-    c1.change()
-    c2.change()
-    c3.change()
-    return jsonify({"val1" : c1.count, "val2" : c2.count, "val3" : c3.count})
+# route for the imu data specifically
+@app.route("/imudata")
+def imudata():
+    global imu_data
 
-# run flask 
-# runs on any ip address in host network
-# port is 50001
-app.run(host="0.0.0.0", port=5001)
+    with lock:
+        return jsonify(imu_data)
+
+    
+
+if __name__ == "__main__":
+    # run imu as background thread
+    imu_thread = arduinoIMU("imu", '/dev/ttyACM0', 9600)
+    imu_thread.daemon = True
+    imu_thread.start()
+
+    # run flask 
+    app.run("0.0.0.0", port=5001, debug=False, use_reloader=False)
 

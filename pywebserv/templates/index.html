@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Counter</title>
+        <title>Drone Analytics</title>
         <meta name="viewport" content="width-device-width, initial-scale=1">
         <!-- this refreshes the site -->
         <!-- <meta http-equiv="refresh" content="1"/> -->
@@ -10,24 +10,24 @@
         </style> -->
     </head>
     <body>
-        <h1>Counter:</h1>
-        <p id="counter1">Count 1: ...</p>
-        <p id="counter2">Count 2: ...</p>
-        <p id="counter3">Count 3: ...</p>
+        <h1>IMU Data:</h1>
+        <p id="heading">Heading: ... deg</p>
+        <p id="roll">Roll: ... deg</p>
+        <p id="pitch">Pitch: ... deg</p>
         <!-- this script updates without changing the whole page -->
         <script>
-            async function updateCounters(){
+            async function updateIMU(){
                 try {
                     // fetches the counter values from the data endpoint
                     // whenever the data endpoint is accessed the count changes
-                    const res = await fetch("/data");
+                    const res = await fetch("/imudata");
                     const data = await res.json();
 
-                    document.getElementById("counter1").textContent = "Count 1: " + data.val1;
-                    document.getElementById("counter2").textContent = "Count 2: " + data.val2;
-                    document.getElementById("counter3").textContent = "Count 3: " + data.val3;
+                    document.getElementById("heading").textContent = "Heading: " + data.heading + " deg";
+                    document.getElementById("roll").textContent = "Roll: " + data.roll + " deg";
+                    document.getElementById("pitch").textContent = "Pitch: " + data.pitch + " deg";
                 } catch (err){
-                    console.error()
+                    console.error(err)
                 }
             }
 
@@ -35,8 +35,8 @@
             // parameters:
             // function to run at intervals
             // interval in milliseconds
-            setInterval(updateCounters, 100); 
-            updateCounters(); // run once immediately
+            setInterval(updateIMU, 100); 
+            updateIMU(); // run once immediately
         </script>
     </body>
 </html>
