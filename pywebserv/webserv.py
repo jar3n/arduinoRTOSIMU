@@ -29,7 +29,6 @@ class  arduinoIMU(threading.Thread):
         self.data = {"heading":"Starting", "roll":" Up ", "pitch":" Now"}
         
     def run(self):
-        global flag
         global imu_data
         # run this in a separate thread
         # from webserver so the serial is always open
