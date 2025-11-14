@@ -3,11 +3,6 @@
     <head>
         <title>Drone Analytics</title>
         <meta name="viewport" content="width-device-width, initial-scale=1">
-        <!-- this refreshes the site -->
-        <!-- <meta http-equiv="refresh" content="1"/> -->
-        <!-- <style>
-            THIS IS WHERE CSS comes in but im not doing that now
-        </style> -->
     </head>
     <body>
         <h1>IMU Data:</h1>
@@ -23,9 +18,12 @@
                     const res = await fetch("/imudata");
                     const data = await res.json();
 
-                    document.getElementById("heading").textContent = "Heading: " + data.heading + " deg";
-                    document.getElementById("roll").textContent = "Roll: " + data.roll + " deg";
-                    document.getElementById("pitch").textContent = "Pitch: " + data.pitch + " deg";
+                    document.getElementById("heading").textContent = 
+                        "Heading: " + data.heading + " deg";
+                    document.getElementById("roll").textContent = 
+                        "Roll: " + data.roll + " deg";
+                    document.getElementById("pitch").textContent = 
+                        "Pitch: " + data.pitch + " deg";
                 } catch (err){
                     console.error(err)
                 }

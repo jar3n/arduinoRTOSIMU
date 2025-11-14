@@ -15,7 +15,8 @@ import json
 app = Flask(__name__)
 
 # imu data is global to share between threads
-# got from here: https://stackoverflow.com/questions/17774768/python-creating-a-shared-variable-between-threads
+# got from here: 
+# https://stackoverflow.com/questions/17774768/python-creating-a-shared-variable-between-threads
 imu_data = {"heading":"CALIBRATING", "roll":"CALIBRATING", "pitch":"CALIBRATING"}
 
 lock = threading.Lock()
